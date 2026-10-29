@@ -704,6 +704,7 @@ $("logout").addEventListener("click", ()=>{ store.del(SKEY); location.reload(); 
 
 function start(res){
   DATA = res;
+  calcPaso(res.cliente);
   $("boot").classList.add("out"); $("login").hidden=true; $("app").hidden=false;
   document.querySelectorAll(".waChat").forEach(a=>a.href = wa(`Hola Samuel, soy ${res.cliente.nombre}. Tengo una pregunta:`));
   if (DEMO_MODE) renderDemoBar();
@@ -743,6 +744,15 @@ const DAY = 864e5;
 function parseDate(s){ const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(s||""); return m?new Date(+m[1],+m[2]-1,+m[3]):null; }
 const fmt = d=>d.toLocaleDateString("es-CO",{weekday:"short",day:"numeric",month:"short"}).replace(/\./g,"");
 const fmtS = d=>d.toLocaleDateString("es-CO",{weekday:"short",day:"numeric"}).replace(/\./g,"");
+const today0 = ()=>{ const t=new Date(); return new Date(t.getFullYear(),t.getMonth(),t.getDate()); };
+const daysBetween = (a,b)=>Math.round((b-a)/DAY);
+/* El paso sale solo de la fecha "inicio" (Día 1). Antes de esa fecha: paso 0 (aún no arranca). */
+function calcPaso(c){
+  const ini = parseDate(c.inicio);
+  if (!ini || DEMO_MODE) return;
+  const diff = daysBetween(ini, today0());
+  c.paso = diff < 0 ? 0 : Math.min(7, diff + 1);
+}
 
 function renderSistema(){
   const c = DATA.cliente, paso = c.paso, start = parseDate(c.inicio);
@@ -755,6 +765,15 @@ function renderSistema(){
     $("sLead").innerHTML = `Desde ahora atiende, filtra y agenda por ti. <b>Cada lunes</b> ves tus números en Mi reporte.`;
     $("sStatus").querySelector("span").textContent = "Sistema activo";
     $("heroCta").hidden = false; $("lockSec").hidden = true;
+  } else if (paso < 1){
+    const toStart = start ? daysBetween(today0(), start) : 0;
+    const toLaunch = toStart + 6;
+    $("sH1").innerHTML = `Tu sistema sale al aire en <em>${toLaunch} días</em>.`;
+    $("sLead").innerHTML = start
+      ? `Tus 7 días arrancan el <b>${fmt(start)}</b> y salimos al aire el <b>${fmt(dateOf(7))}</b>.`
+      : `Tus 7 días arrancan pronto. Te aviso la fecha exacta.`;
+    $("sStatus").querySelector("span").textContent = toStart===1 ? "Arrancamos mañana" : `Arrancamos en ${toStart} días`;
+    $("heroCta").hidden = true; $("lockSec").hidden = false;
   } else if (paso === 1){
     $("sH1").innerHTML = `En <em>7 días</em> tu sistema sale al aire.`;
     $("sLead").innerHTML = `Tu parte: <b>unos minutos al día</b>. El resto lo hago yo.`;
@@ -799,7 +818,7 @@ function renderSistema(){
     tl.appendChild(li);
   });
   once(tl, ()=>{ const steps=[...tl.querySelectorAll(".step")]; const target = steps.find(x=>x.classList.contains("cur")) || steps[steps.length-1];
-    const h = (target.offsetTop + 22) - 22; $("tlFill").style.height = Math.max(0,h) + "px"; }, .2);
+    const h = paso < 1 ? 0 : (target.offsetTop + 22) - 22; $("tlFill").style.height = Math.max(0,h) + "px"; }, .2);
 
   const done = DATA.expectativas || store.get(SKEY+":exp");
   $("expForm").hidden = !!done; $("expDone").hidden = !done;
